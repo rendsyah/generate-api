@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as root from 'app-root-path';
 import * as csv from 'csv-parse';
@@ -8,11 +9,12 @@ import { AllocationsRepository } from './allocations.repository';
 
 @Injectable()
 export class AllocationsService {
-    constructor(private readonly allocationRepository: AllocationsRepository) {}
+    constructor(private readonly config: ConfigService, private readonly allocationRepository: AllocationsRepository) {}
 
     async generateAllocations() {
         const allocations: IAllocations[] = [];
-        const getAllocations = fs.readdirSync(`${root}/../imports/allocations`);
+        const getPathAllocations = this.config.get('PATH_ALLOCATIONS');
+        const getAllocations = fs.readdirSync(`${root}/..${getPathAllocations}`);
 
         if (getAllocations.length === 0) {
             return new NotFoundException('file not exists');
@@ -21,13 +23,15 @@ export class AllocationsService {
         for (let index = 0; index < getAllocations.length; index++) {
             const fileAllocation = getAllocations[index];
             fs.createReadStream(`${root}/../imports/allocations/${fileAllocation}`)
-                .pipe(csv.parse({ columns: true }))
+                .pipe(csv.parse({ columns: true, skip_records_with_empty_values: true }))
                 .on('error', (err) => console.log(err))
                 .on('data', (rows) => allocations.push(rows))
                 .on('end', async () => {
                     if (allocations.length === 0) {
                         return new NotFoundException('data allocation not exists');
                     }
+
+                    console.log(allocations);
 
                     await this._processAllocations(allocations);
                     return;
@@ -61,7 +65,7 @@ export class AllocationsService {
                 await this.allocationRepository
                     .insertAllocation(insertAllocation)
                     .then(() => console.log(`insert allocation success: prizeId: ${prizeId} - date: ${date}`))
-                    .catch(() => {
+                    .catch((err) => {
                         errorData.push(insertAllocation);
                         console.log(`insert allocation error: prizeId: ${prizeId} - date: ${date}`);
                     });
@@ -74,8 +78,9 @@ export class AllocationsService {
         }
 
         if (errorData.length > 0) {
-            const createError = fs.createWriteStream(`${root}/../imports/errors/error.txt`);
-            createError.write(errorData);
+            const getPathErrors = this.config.get('PATH_ERRORS');
+            const createError = fs.createWriteStream(`${root}/..${getPathErrors}/error-allocations.txt`);
+            createError.write(JSON.stringify(errorData));
             createError.end();
         }
     }
