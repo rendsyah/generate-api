@@ -11,41 +11,6 @@ import { AllocationsRepository } from './allocations.repository';
 export class AllocationsService {
     constructor(private readonly config: ConfigService, private readonly allocationRepository: AllocationsRepository) {}
 
-    async generateAllocations() {
-        const allocations: IAllocations[] = [];
-        const getPathAllocations = this.config.get('PATH_ALLOCATIONS');
-        const getAllocations = fs.readdirSync(`${root}/..${getPathAllocations}`);
-
-        if (getAllocations.length === 0) {
-            return new NotFoundException('file not exists');
-        }
-
-        for (let index = 0; index < getAllocations.length; index++) {
-            const fileAllocation = getAllocations[index];
-            fs.createReadStream(`${root}/../imports/allocations/${fileAllocation}`)
-                .pipe(csv.parse({ columns: true, skip_records_with_empty_values: true }))
-                .on('error', (err) => console.log(err))
-                .on('data', (rows) => allocations.push(rows))
-                .on('end', async () => {
-                    if (allocations.length === 0) {
-                        return new NotFoundException('data allocation not exists');
-                    }
-
-                    console.log(allocations);
-
-                    await this._processAllocations(allocations);
-                    return;
-                });
-        }
-    }
-
-    async downloadAllocations() {
-        const downloadPath = `${root}/downloads/template_allocation.csv`;
-        const downloadStream = fs.createReadStream(downloadPath);
-
-        return new StreamableFile(downloadStream);
-    }
-
     private async _processAllocations(params: IAllocations[]) {
         let countLoop = 0;
         let errorData = [];
@@ -83,5 +48,40 @@ export class AllocationsService {
             createError.write(JSON.stringify(errorData));
             createError.end();
         }
+    }
+
+    public async generateAllocations() {
+        const allocations: IAllocations[] = [];
+        const getPathAllocations = this.config.get('PATH_ALLOCATIONS');
+        const getAllocations = fs.readdirSync(`${root}/..${getPathAllocations}`);
+
+        if (getAllocations.length === 0) {
+            return new NotFoundException('file not exists');
+        }
+
+        for (let index = 0; index < getAllocations.length; index++) {
+            const fileAllocation = getAllocations[index];
+            fs.createReadStream(`${root}/../imports/allocations/${fileAllocation}`)
+                .pipe(csv.parse({ columns: true, skip_records_with_empty_values: true }))
+                .on('error', (err) => console.log(err))
+                .on('data', (rows) => allocations.push(rows))
+                .on('end', async () => {
+                    if (allocations.length === 0) {
+                        return new NotFoundException('data allocation not exists');
+                    }
+
+                    console.log(allocations);
+
+                    await this._processAllocations(allocations);
+                    return;
+                });
+        }
+    }
+
+    public async downloadAllocations() {
+        const downloadPath = `${root}/downloads/template_allocation.csv`;
+        const downloadStream = fs.createReadStream(downloadPath);
+
+        return new StreamableFile(downloadStream);
     }
 }

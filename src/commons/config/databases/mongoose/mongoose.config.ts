@@ -4,7 +4,7 @@ import { MongooseModuleAsyncOptions, MongooseModuleOptions, MongooseOptionsFacto
 export class MongooseConfig implements MongooseOptionsFactory {
     constructor(private configService: ConfigService) {}
 
-    createMongooseOptions(): MongooseModuleOptions {
+    public createMongooseOptions(): MongooseModuleOptions {
         return {
             uri: this.configService.get<string>('PROJECT_MONGO_DB_HOST'),
             connectTimeoutMS: 30000,

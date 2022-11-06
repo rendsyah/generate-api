@@ -8,7 +8,7 @@ import { IInsertAllocation } from './allocations.interface';
 export class AllocationsRepository {
     constructor(@InjectRepository(Allocation) private readonly allocationRepository: Repository<Allocation>) {}
 
-    async insertAllocation(params: IInsertAllocation) {
+    public async insertAllocation(params: IInsertAllocation) {
         return await this.allocationRepository.save(params);
     }
 }

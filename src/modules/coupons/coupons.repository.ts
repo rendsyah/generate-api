@@ -8,7 +8,7 @@ import { IInsertCoupons } from './coupons.interface';
 export class CouponsRepository {
     constructor(@InjectModel(Coupons.name) private readonly couponModel: Model<CouponsDocument>) {}
 
-    async insertCoupon(params: IInsertCoupons) {
+    public async insertCoupon(params: IInsertCoupons) {
         const createdCoupon = new this.couponModel(params);
         return createdCoupon.save();
     }

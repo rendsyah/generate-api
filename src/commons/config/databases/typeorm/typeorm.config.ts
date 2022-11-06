@@ -5,7 +5,7 @@ import { join } from 'path';
 export class TypeOrmConfig implements TypeOrmOptionsFactory {
     constructor(private configService: ConfigService) {}
 
-    createTypeOrmOptions(): TypeOrmModuleOptions {
+    public createTypeOrmOptions(): TypeOrmModuleOptions {
         return {
             type: 'mariadb',
             host: this.configService.get<string>('PROJECT_DB_HOST'),

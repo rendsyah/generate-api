@@ -11,39 +11,6 @@ import { CouponsRepository } from './coupons.repository';
 export class CouponsService {
     constructor(private config: ConfigService, private couponsRepository: CouponsRepository) {}
 
-    async generateCoupons() {
-        const coupons: ICoupons[] = [];
-        const getPathCoupons = this.config.get('PATH_COUPONS');
-        const getCoupons = fs.readdirSync(`${root}/..${getPathCoupons}`);
-
-        if (getCoupons.length === 0) {
-            return new NotFoundException('file not exists');
-        }
-
-        for (let index = 0; index < getCoupons.length; index++) {
-            const fileCoupon = getCoupons[index];
-            fs.createReadStream(`${root}/../imports/coupons/${fileCoupon}`)
-                .pipe(csv.parse({ columns: true }))
-                .on('error', (err) => console.log(err))
-                .on('data', (row) => coupons.push(row))
-                .on('end', async () => {
-                    if (coupons.length === 0) {
-                        return new NotFoundException('data allocation not exists');
-                    }
-
-                    await this._processCoupons(coupons);
-                    return;
-                });
-        }
-    }
-
-    async downloadCoupons() {
-        const downloadPath = `${root}/downloads/template_coupon.csv`;
-        const downloadStream = fs.createReadStream(downloadPath);
-
-        return new StreamableFile(downloadStream);
-    }
-
     private async _processCoupons(params: ICoupons[]) {
         const errorData = [];
 
@@ -74,5 +41,38 @@ export class CouponsService {
             createError.write(errorData);
             createError.end();
         }
+    }
+
+    public async generateCoupons() {
+        const coupons: ICoupons[] = [];
+        const getPathCoupons = this.config.get('PATH_COUPONS');
+        const getCoupons = fs.readdirSync(`${root}/..${getPathCoupons}`);
+
+        if (getCoupons.length === 0) {
+            return new NotFoundException('file not exists');
+        }
+
+        for (let index = 0; index < getCoupons.length; index++) {
+            const fileCoupon = getCoupons[index];
+            fs.createReadStream(`${root}/../imports/coupons/${fileCoupon}`)
+                .pipe(csv.parse({ columns: true }))
+                .on('error', (err) => console.log(err))
+                .on('data', (row) => coupons.push(row))
+                .on('end', async () => {
+                    if (coupons.length === 0) {
+                        return new NotFoundException('data allocation not exists');
+                    }
+
+                    await this._processCoupons(coupons);
+                    return;
+                });
+        }
+    }
+
+    public async downloadCoupons() {
+        const downloadPath = `${root}/downloads/template_coupon.csv`;
+        const downloadStream = fs.createReadStream(downloadPath);
+
+        return new StreamableFile(downloadStream);
     }
 }
