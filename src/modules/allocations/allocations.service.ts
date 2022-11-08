@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as root from 'app-root-path';
 import * as csv from 'csv-parse';
@@ -8,11 +9,51 @@ import { AllocationsRepository } from './allocations.repository';
 
 @Injectable()
 export class AllocationsService {
-    constructor(private readonly allocationRepository: AllocationsRepository) {}
+    constructor(private readonly config: ConfigService, private readonly allocationRepository: AllocationsRepository) {}
+
+    private async _processAllocations(params: IAllocations[]) {
+        let countLoop = 0;
+        let errorData = [];
+
+        for (let index = 0; index < params.length; index++) {
+            const date = moment(params[index].date).format('YYYY-MM-DD');
+            const prizeLoop = +params[index].prizeLoop;
+            const prizeId = +params[index].prizeId;
+
+            while (countLoop < prizeLoop) {
+                countLoop++;
+                const insertAllocation = {
+                    prizeId: prizeId,
+                    allocation_date: date,
+                };
+
+                await this.allocationRepository
+                    .insertAllocation(insertAllocation)
+                    .then(() => console.log(`insert allocation success: prizeId: ${prizeId} - date: ${date}`))
+                    .catch((err) => {
+                        errorData.push(insertAllocation);
+                        console.log(`insert allocation error: prizeId: ${prizeId} - date: ${date}`);
+                    });
+
+                if (countLoop === prizeLoop) {
+                    countLoop = 0;
+                    break;
+                }
+            }
+        }
+
+        if (errorData.length > 0) {
+            const getPathErrors = this.config.get('PATH_ERRORS');
+            const createError = fs.createWriteStream(`${root}/..${getPathErrors}/error-allocations.txt`);
+            createError.write(JSON.stringify(errorData));
+            createError.end();
+        }
+    }
 
     async generateAllocations() {
         const allocations: IAllocations[] = [];
-        const getAllocations = fs.readdirSync(`${root}/../imports/allocations`);
+        const getPathAllocations = this.config.get('PATH_ALLOCATIONS');
+        const getAllocations = fs.readdirSync(`${root}/..${getPathAllocations}`);
 
         if (getAllocations.length === 0) {
             return new NotFoundException('file not exists');
@@ -49,43 +90,5 @@ export class AllocationsService {
         const downloadStream = fs.createReadStream(downloadPath);
 
         return new StreamableFile(downloadStream);
-    }
-
-    private async _processAllocations(params: IAllocations[]) {
-        let countLoop = 0;
-        let errorData = [];
-
-        for (let index = 0; index < params.length; index++) {
-            const date = moment(params[index].date).format('YYYY-MM-DD');
-            const prizeLoop = +params[index].prizeLoop;
-            const prizeId = +params[index].prizeId;
-
-            while (countLoop < prizeLoop) {
-                countLoop++;
-                const insertAllocation = {
-                    prizeId: prizeId,
-                    allocation_date: date,
-                };
-
-                await this.allocationRepository
-                    .insertAllocation(insertAllocation)
-                    .then(() => console.log(`insert allocation success: prizeId: ${prizeId} - date: ${date}`))
-                    .catch(() => {
-                        errorData.push(insertAllocation);
-                        console.log(`insert allocation error: prizeId: ${prizeId} - date: ${date}`);
-                    });
-
-                if (countLoop === prizeLoop) {
-                    countLoop = 0;
-                    break;
-                }
-            }
-        }
-
-        // if (errorData.length > 0) {
-        //     const createError = fs.createWriteStream(`${root}/../imports/errors/error.txt`);
-        //     createError.write(errorData);
-        //     createError.end();
-        // }
     }
 }

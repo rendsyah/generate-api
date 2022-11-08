@@ -1,18 +1,52 @@
 import { Injectable, NotFoundException, StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as root from 'app-root-path';
 import * as csv from 'csv-parse';
 import * as moment from 'moment';
-
-import { ICouponsData } from './coupons.interface';
+import { ICoupons } from './coupons.interface';
+import { CouponsRepository } from './coupons.repository';
 
 @Injectable()
 export class CouponsService {
-    constructor() {}
+    constructor(private config: ConfigService, private couponsRepository: CouponsRepository) {}
 
-    async generateCoupons() {
-        const resultData: ICouponsData[] = [];
-        const getCoupons = fs.readdirSync(`${root}/../imports/coupons`);
+    private async _processCoupons(params: ICoupons[]) {
+        const errorData = [];
+
+        for (let index = 0; index < params.length; index++) {
+            const coupon = params[index].coupon;
+            const promoId = params[index]?.promoId;
+            const periodeId = params[index]?.periodeId;
+
+            const insertCoupon = {
+                filename: '',
+                coupon: coupon,
+                length: coupon.length,
+                status: 0,
+            };
+
+            await this.couponsRepository
+                .insertCoupon(insertCoupon)
+                .then(() => console.log(`insert allocation success: coupon: ${coupon}`))
+                .catch((err) => {
+                    errorData.push(coupon);
+                    console.log(`insert allocation failed: coupon: ${coupon}`);
+                });
+        }
+
+        if (errorData.length > 0) {
+            const getPathErrors = this.config.get('PATH_ERRORS');
+            const createError = fs.createWriteStream(`${root}/..${getPathErrors}/error-coupons.txt`);
+            createError.write(errorData);
+            createError.end();
+        }
+    }
+
+    public async generateCoupons() {
+        const coupons: ICoupons[] = [];
+        const getPathCoupons = this.config.get('PATH_COUPONS');
+        const getCoupons = fs.readdirSync(`${root}/..${getPathCoupons}`);
 
         if (getCoupons.length === 0) {
             return new NotFoundException('file not exists');
@@ -23,44 +57,22 @@ export class CouponsService {
             fs.createReadStream(`${root}/../imports/coupons/${fileCoupon}`)
                 .pipe(csv.parse({ columns: true }))
                 .on('error', (err) => console.log(err))
-                .on('data', (row) => resultData.push(row))
+                .on('data', (row) => coupons.push(row))
                 .on('end', async () => {
-                    if (resultData.length === 0) {
+                    if (coupons.length === 0) {
                         return new NotFoundException('data allocation not exists');
                     }
 
-                    console.log('insert data on process');
-                    await this._processCoupons(resultData);
-
+                    await this._processCoupons(coupons);
                     return;
                 });
         }
     }
 
-    async downloadCoupons() {
+    public async downloadCoupons() {
         const downloadPath = `${root}/downloads/template_coupon.csv`;
         const downloadStream = fs.createReadStream(downloadPath);
 
         return new StreamableFile(downloadStream);
-    }
-
-    private async _processCoupons(params: ICouponsData[]) {
-        for (let index = 0; index < params.length; index++) {
-            const coupon = params[index].coupon;
-            const promoId = +params[index].promoId;
-            const periodeId = +params[index].periodeId;
-
-            const insertCoupon = {
-                coupon,
-                promoId,
-                periodeId,
-                status: 0,
-                used_date: null,
-                is_deleted: 0,
-                deleted_at: null,
-                created_at: moment().unix(),
-                updated_at: moment().unix(),
-            };
-        }
     }
 }

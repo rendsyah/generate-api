@@ -8,6 +8,6 @@ import { ModelsRepository } from './models/models.entity';
 @Module({
     imports: [TypeOrmModule.forFeature(ModelsRepository)],
     controllers: [AllocationsController],
-    providers: [AllocationsRepository, AllocationsService],
+    providers: [AllocationsService, AllocationsRepository],
 })
 export class AllocationsModule {}
