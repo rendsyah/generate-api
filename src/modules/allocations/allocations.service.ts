@@ -66,11 +66,6 @@ export class AllocationsService {
                 .on('error', (err) => console.log(err))
                 .on('data', async (rows) => {
                     allocations.push(rows);
-
-                    if (allocations.length === 1000) {
-                        await this._processAllocations(allocations);
-                        allocations.splice(0, allocations.length);
-                    }
                     if (allocations.length === 1) {
                         await this._processAllocations(allocations);
                         allocations.splice(0, allocations.length);
