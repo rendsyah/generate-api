@@ -23,13 +23,22 @@ export class AllocationsService {
             fs.createReadStream(`${root}/../imports/allocations/${fileAllocation}`)
                 .pipe(csv.parse({ columns: true }))
                 .on('error', (err) => console.log(err))
-                .on('data', (rows) => allocations.push(rows))
-                .on('end', async () => {
+                .on('data', async (rows) => {
+                    allocations.push(rows);
+
+                    if (allocations.length === 1000) {
+                        await this._processAllocations(allocations);
+                        allocations.splice(0, allocations.length);
+                    }
+                    if (allocations.length === 1) {
+                        await this._processAllocations(allocations);
+                        allocations.splice(0, allocations.length);
+                    }
+                })
+                .on('end', () => {
                     if (allocations.length === 0) {
                         return new NotFoundException('data allocation not exists');
                     }
-
-                    await this._processAllocations(allocations);
                     return;
                 });
         }
@@ -73,10 +82,10 @@ export class AllocationsService {
             }
         }
 
-        if (errorData.length > 0) {
-            const createError = fs.createWriteStream(`${root}/../imports/errors/error.txt`);
-            createError.write(errorData);
-            createError.end();
-        }
+        // if (errorData.length > 0) {
+        //     const createError = fs.createWriteStream(`${root}/../imports/errors/error.txt`);
+        //     createError.write(errorData);
+        //     createError.end();
+        // }
     }
 }
